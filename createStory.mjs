@@ -71,10 +71,14 @@ export const handler = async (event) => {
   // Story Prompt
   var storyPrompt = "SETTING:\n"+story.setting+"\nTHEME:\n"+story.theme+"CHARACTERS:\n"+JSON.stringify(story.players)+"\nINSTRUCTIONS:\n"+story.instructions
   story.content = []
+  var pluralS = ""
+  if (story.winners > 1) {
+    pluralS = "s"
+  }
   var messageHistory = [
     {
       "role": "system",
-      "content": "Say \"STOP\" at any point to end the line\nDo not respond with more than 70 words\nThe following player(s) must win: "+story.winningPlayers+"\nRespond each time with the player's name, what they are saying, and details about what the player is doing. Or describe how they've eliminated another player.\nOne players line per response\nOnce a player is eliminated they can no longer compete\nBefore ending, announce the winner(s)"
+      "content": `Say "STOP" at any point to end the line\nDo not respond with more than 70 words\nOne players line per response\nOnce a player is eliminated they can no longer compete\nBefore ending, announce the winner\nThere will be ${story.winners} winner${pluralS}\nRespond each time with the player's name, their dialogue, and details about what the player is doing. Or describe how they've eliminated another player.`
     }
   ]
   messageHistory.push({
@@ -110,11 +114,11 @@ export const handler = async (event) => {
         alivePlayers.splice(random, 1)
         messageHistory.push({
           "role": "user",
-          "content": "Alive players: "+alivePlayers+". Eliminate "+eliminateNext+". Genterate the next line."
+          "content": `Alive players: ${story.winningPlayers},${alivePlayers}. Eliminate ${eliminateNext}. Genterate the next line.`
         })
         
         // if no player eliminated
-      } else {
+      } else if (alivePlayers.length > 0) {
         messageHistory.push({
           "role": "user",
           "content": "Do not eliminate anyone. Genterate the next line."
@@ -123,8 +127,21 @@ export const handler = async (event) => {
 
       // ---end of WHILE loop---
     }
+    messageHistory.push({
+      "role": "user",
+      "content": `Announce the winner${pluralS}: ${story.winningPlayers}`
+    })
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-nano",
+      messages: messageHistory,
+      max_completion_tokens: 100,
+      // temperature: 1,
+      stop: ["STOP"]
+    });
+    // append to story content
+    story.content.push(completion.choices[0].message.content)
 
-    // write to the S3 bucket
+    // --- write to the S3 bucket ---
     const putCommand = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
