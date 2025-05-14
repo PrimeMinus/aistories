@@ -50,10 +50,18 @@ export const handler = async (event) => {
     };
   }
 
+  // ensure winner count is valid
+  if (story.winners < 1 || story.winners + 1 > story.players.length) {
+    return {
+      statusCode: 500,
+      body: "Invalid number of winners"
+    };
+  }
+
   // Pick winner(s)
   story.winningPlayers = []
   while (story.winningPlayers.length < story.winners) {
-    // generage random number between 0 and story.players.length
+    // generate random number between 0 and story.players.length
     var random = Math.floor(Math.random() * story.players.length);
     if (!story.winningPlayers.includes(story.players[random].name)) {
       story.winningPlayers.push(story.players[random].name);
@@ -108,20 +116,20 @@ export const handler = async (event) => {
       // role dice to determine if a player should be eliminated
       if (Math.random() < 0.3) {
         var eliminateNext = ""
-        // generage random number between 0 and alivePlayer.length
+        // generate random number between 0 and alivePlayer.length
         var random = Math.floor(Math.random() * alivePlayers.length);
         eliminateNext = alivePlayers[random]
         alivePlayers.splice(random, 1)
         messageHistory.push({
           "role": "user",
-          "content": `Alive players: ${story.winningPlayers},${alivePlayers}. Eliminate ${eliminateNext}. Genterate the next line.`
+          "content": `Alive players: ${story.winningPlayers},${alivePlayers}. Eliminate ${eliminateNext}. Generate the next line.`
         })
         
         // if no player eliminated
       } else if (alivePlayers.length > 0) {
         messageHistory.push({
           "role": "user",
-          "content": "Do not eliminate anyone. Genterate the next line."
+          "content": "Do not eliminate anyone. Generate the next line."
         })
       }
 
