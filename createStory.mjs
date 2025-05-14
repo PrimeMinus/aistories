@@ -58,6 +58,16 @@ export const handler = async (event) => {
     };
   }
 
+  // update story status to loading
+  story.content[0] = "loading"
+  const putCommand = new PutObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+    Body: JSON.stringify(story, null, 2),
+    ContentType: "application/json",
+  });
+  await s3.send(putCommand);
+
   // Pick winner(s)
   story.winningPlayers = []
   while (story.winningPlayers.length < story.winners) {
@@ -86,7 +96,7 @@ export const handler = async (event) => {
   var messageHistory = [
     {
       "role": "system",
-      "content": `Say "STOP" at any point to end the line\nDo not respond with more than 70 words\nOne players line per response\nOnce a player is eliminated they can no longer compete\nBefore ending, announce the winner\nThere will be ${story.winners} winner${pluralS}\nRespond each time with the player's name, their dialogue, and details about what the player is doing. Or describe how they've eliminated another player.`
+      "content": `Say "STOP" at any point to end the line\nDo not respond with more than 70 words\nOne players line per response\nOnce a player is eliminated they can no longer compete\nBefore ending, announce the winner\nThere will be ${story.winners} winner${pluralS}\nRespond each time with the player's name, their dialogue, and details about what the player is doing. Or describe how they've eliminated another player.\nDo not ask the user questions or instuct them in any way.`
     }
   ]
   messageHistory.push({

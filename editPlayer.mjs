@@ -37,6 +37,10 @@ export const handler = async (event) => {
     const fileContents = await streamToString(response.Body); // body is a stream
     const story = JSON.parse(fileContents);
 
+    if (event.body.player.id == "") {
+      event.body.player.id = (Math.floor(Math.random() * 999) + 1000).toString()
+    }
+
     var playerIndex = -1;
     for (var i = 0; i < story.players.length; i++) {
       if (story.players[i].id == event.body.player.id) {
