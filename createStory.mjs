@@ -78,25 +78,20 @@ export const handler = async (event) => {
     }
   }
 
-  // set up alive players
-  var alivePlayers = []
-  story.players.forEach(player => {
-    if (!story.winningPlayers.includes(player.name)) {
-      alivePlayers.push(player.name)
-    }
-  });
-
   // Story Prompt
-  var storyPrompt = "SETTING:\n"+story.setting+"\nTHEME:\n"+story.theme+"CHARACTERS:\n"+JSON.stringify(story.players)+"\nINSTRUCTIONS:\n"+story.instructions
+  var storyPrompt = "SETTING:\n"+story.setting+"\nTHEME:\n"+story.theme+"CHARACTERS:\n"+JSON.stringify(playerArrayToString(story.players))+"\nINSTRUCTIONS:\n"+story.instructions
   story.content = []
   var pluralS = ""
+  var areOrIs = "is"
   if (story.winners > 1) {
     pluralS = "s"
+    areOrIs = "are"
+    
   }
   var messageHistory = [
     {
       "role": "system",
-      "content": `Say "STOP" at any point to end the line\nDo not respond with more than 70 words\nOne players line per response\nOnce a player is eliminated they can no longer compete\nBefore ending, announce the winner\nThere will be ${story.winners} winner${pluralS}\nRespond each time with the player's name, their dialogue, and details about what the player is doing. Or describe how they've eliminated another player.\nDo not ask the user questions or instuct them in any way.`
+      "content": `You are an AI assitant, your job is to create a story for the user using the instructions they have given you. Do not use formatting characters. Ensure that there ${areOrIs} ${story.winners} winner${pluralS}. They should be: ${story.winningPlayers.join(", ")}. Say "STOP" at the end of the story to end your message.`
     }
   ]
   messageHistory.push({
@@ -105,59 +100,15 @@ export const handler = async (event) => {
   })
   
   try {
-    while (alivePlayers.length >= story.winners && story.content.length < 50) {
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4.1-nano",
-        messages: messageHistory,
-        max_completion_tokens: 100,
-        // temperature: 1,
-        stop: ["STOP"]
-      });
-      
-      // append to story content
-      story.content.push(completion.choices[0].message.content)
-      
-      //append to history
-      messageHistory.push({
-        "role": "assistant",
-        "content": completion.choices[0].message.content
-      })
-      
-      // role dice to determine if a player should be eliminated
-      if (Math.random() < 0.3) {
-        var eliminateNext = ""
-        // generate random number between 0 and alivePlayer.length
-        var random = Math.floor(Math.random() * alivePlayers.length);
-        eliminateNext = alivePlayers[random]
-        alivePlayers.splice(random, 1)
-        messageHistory.push({
-          "role": "user",
-          "content": `Alive players: ${story.winningPlayers},${alivePlayers}. Eliminate ${eliminateNext}. Generate the next line.`
-        })
-        
-        // if no player eliminated
-      } else if (alivePlayers.length > 0) {
-        messageHistory.push({
-          "role": "user",
-          "content": "Do not eliminate anyone. Generate the next line."
-        })
-      }
-
-      // ---end of WHILE loop---
-    }
-    messageHistory.push({
-      "role": "user",
-      "content": `Announce the winner${pluralS}: ${story.winningPlayers}`
-    })
     const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-nano",
+      model: "gpt-4.1",
       messages: messageHistory,
-      max_completion_tokens: 100,
       // temperature: 1,
       stop: ["STOP"]
-    });
+    })
+
     // append to story content
-    story.content.push(completion.choices[0].message.content)
+    story.content = stringToArray(completion.choices[0].message.content)
 
     // --- write to the S3 bucket ---
     const putCommand = new PutObjectCommand({
@@ -179,3 +130,32 @@ export const handler = async (event) => {
     };
   }
 };
+
+function stringToArray(str) {
+  var array = []
+  var isFinished = false
+  while (!isFinished) {
+    array.push(str.substring(0, str.indexOf("\n")))
+    if (array[array.length - 1] == "") {
+      array.pop()
+    }
+    str = str.substring(str.indexOf("\n") + 1)
+
+    if (!str.includes("\n")) {
+      isFinished = true
+    }
+  }
+  array.push(str)
+  return array
+}
+
+function playerArrayToString(players) {
+  var string = ""
+  for (var i = 0; i < players.length; i++) {
+    string += players[i].name
+    if (players[i].characteristics != "") {
+      string += " (" + players[i].characteristics + ") "
+    }
+  }
+  return string
+}
