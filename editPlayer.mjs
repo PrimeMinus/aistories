@@ -60,6 +60,11 @@ export const handler = async (event) => {
       }
     }
 
+    // ensure winner count is still valid after player modifications
+    if (story.winners >= story.players.length) {
+      story.winners = story.players.length - 1;
+    }
+
     const putCommand = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
